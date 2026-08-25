@@ -33,7 +33,9 @@ jobs:
           -destination 'generic/platform=iOS' \
           -archivePath build/MockCameraApp.xcarchive \
           CODE_SIGNING_ALLOWED=NO \
-          CODE_SIGNING_REQUIRED=NO
+          CODE_SIGNING_REQUIRED=NO \
+          SWIFT_COMPILATION_MODE=singlefile \
+          SWIFT_OPTIMIZATION_LEVEL=-Onone
 
     - name: Package IPA
       run: |
