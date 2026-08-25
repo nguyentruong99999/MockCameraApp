@@ -1,0 +1,47 @@
+name: Build iOS IPA
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install xcodegen
+        run: brew install xcodegen
+
+      - name: Generate Xcode Project
+        run: |
+          cd MockCameraApp
+          xcodegen generate
+
+      - name: Build and Archive
+        run: |
+          xcodebuild -project MockCameraApp/MockCameraApp.xcodeproj \
+                     -scheme MockCameraApp \
+                     -configuration Release \
+                     -sdk iphoneos \
+                     -archivePath $PWD/build/MockCameraApp.xcarchive \
+                     CODE_SIGN_IDENTITY="" \
+                     CODE_SIGNING_REQUIRED=NO \
+                     CODE_SIGNING_ALLOWED=NO \
+                     archive
+
+      - name: Package IPA
+        run: |
+          mkdir -p Payload
+          cp -r build/MockCameraApp.xcarchive/Products/Applications/MockCameraApp.app Payload/
+          zip -r MockCameraApp.ipa Payload
+          rm -rf Payload
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MockCameraApp-IPA
+          path: MockCameraApp.ipa
