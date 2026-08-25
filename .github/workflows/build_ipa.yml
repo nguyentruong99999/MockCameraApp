@@ -2,47 +2,41 @@ name: Build iOS IPA
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
   build:
-    runs-on: macos-15
+    runs-on: macos-14
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v4
 
-      - name: Install xcodegen
-        run: brew install xcodegen
+    - name: Set up Xcode
+      uses: maxim-lobanov/setup-xcode@v1
+      with:
+        xcode-version: 'latest-stable'
 
-      - name: Generate Xcode Project
-        run: |
-          cd MockCameraApp
-          xcodegen generate
+    - name: Build Archive
+      run: |
+        xcodebuild archive \
+          -project MockCameraApp/MockCameraApp.xcodeproj \
+          -scheme MockCameraApp \
+          -destination 'generic/platform=iOS' \
+          -archivePath build/MockCameraApp.xcarchive \
+          CODE_SIGNING_ALLOWED=NO \
+          CODE_SIGNING_REQUIRED=NO
 
-      - name: Build and Archive
-        run: |
-          xcodebuild -project MockCameraApp/MockCameraApp.xcodeproj \
-                     -scheme MockCameraApp \
-                     -configuration Release \
-                     -sdk iphoneos \
-                     -destination 'generic/platform=iOS' \
-                     -archivePath ${{ github.workspace }}/build/MockCameraApp.xcarchive \
-                     CODE_SIGN_IDENTITY="" \
-                     CODE_SIGNING_REQUIRED=NO \
-                     CODE_SIGNING_ALLOWED=NO \
-                     clean archive
+    - name: Package IPA
+      run: |
+        mkdir -p build/Payload
+        cp -R build/MockCameraApp.xcarchive/Products/Applications/*.app build/Payload/
+        cd build
+        zip -r MockCameraApp.ipa Payload
 
-      - name: Package IPA
-        run: |
-          mkdir -p Payload
-          cp -r build/MockCameraApp.xcarchive/Products/Applications/MockCameraApp.app Payload/
-          zip -r MockCameraApp.ipa Payload
-          rm -rf Payload
-
-      - name: Upload IPA Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: MockCameraApp-IPA
-          path: MockCameraApp.ipa
+    - name: Upload IPA Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: MockCameraApp-IPA
+        path: build/MockCameraApp.ipa
