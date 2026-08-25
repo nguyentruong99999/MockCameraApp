@@ -35,13 +35,22 @@ jobs:
           CODE_SIGNING_ALLOWED=NO \
           CODE_SIGNING_REQUIRED=NO \
           SWIFT_COMPILATION_MODE=singlefile \
-          SWIFT_OPTIMIZATION_LEVEL=-Onone | grep -E "error:|FAILED" || true
+          SWIFT_OPTIMIZATION_LEVEL=-Onone
 
     - name: Package IPA
       run: |
         cd MockCameraApp
+        
+        # Tìm file .app thực tế được sinh ra
+        APP_PATH=$(find build/MockCameraApp.xcarchive -name "*.app" | head -n 1)
+        
+        if [ -z "$APP_PATH" ]; then
+          echo "Error: Xcode archive khong tao ra file .app"
+          exit 1
+        fi
+        
         mkdir -p build/Payload
-        cp -R build/MockCameraApp.xcarchive/Products/Applications/*.app build/Payload/ 2>/dev/null || true
+        cp -R "$APP_PATH" build/Payload/
         cd build
         zip -r MockCameraApp.ipa Payload
 
