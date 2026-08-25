@@ -1,6 +1,7 @@
 name: MockCameraApp
 options:
   bundleIdPrefix: com.example.vcam
+  xcodeVersion: "15.4"
   deploymentTarget:
     iOS: "16.0"
 targets:

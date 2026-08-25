@@ -1,32 +1,48 @@
 import SwiftUI
+import UIKit
 import PhotosUI
 import AVFoundation
 import CoreImage
+import UniformTypeIdentifiers
+import CoreTransferable
+
+enum AppMode: String, CaseIterable, Identifiable {
+    case realCamera = "Camera Thật"
+    case mockVideo = "Video Giả Lập (VCam)"
+    var id: String { self.rawValue }
+}
+
+struct MovieFile: Transferable {
+    let url: URL
+
+    static var transferRepresentation: some TransferRepresentation {
+        FileRepresentation(contentType: .movie) { movie in
+            SentTransferredFile(movie.url)
+        } importing: { received in
+            let tempDir = FileManager.default.temporaryDirectory
+            let targetURL = tempDir.appendingPathComponent(UUID().uuidString + ".mp4")
+            try FileManager.default.copyItem(at: received.file, to: targetURL)
+            return MovieFile(url: targetURL)
+        }
+    }
+}
 
 struct ContentView: View {
     @StateObject private var cameraService = CameraService()
     private let mockSource = MockVideoSource()
     private let ciContext = CIContext()
 
-    @State private var selectedMode: Mode = .mockVideo
+    @State private var selectedMode: AppMode = .mockVideo
     @State private var selectedPhotoItem: PhotosPickerItem? = nil
     @State private var currentPreviewImage: UIImage? = nil
     @State private var statusMessage: String = "Chưa nạp video giả lập"
     @State private var isStreamingMock = false
-    @State private var frameCount = 0
-
-    enum Mode: String, CaseIterable, Identifiable {
-        case realCamera = "Camera Thật"
-        case mockVideo = "Video Giả Lập (VCam)"
-        var id: String { self.rawValue }
-    }
 
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
 
             VStack(spacing: 16) {
-                // Header Title
                 VStack(spacing: 4) {
                     Text("VCam & Video Stream Test")
                         .font(.title2.bold())
@@ -37,9 +53,8 @@ struct ContentView: View {
                 }
                 .padding(.top, 8)
 
-                // Mode Picker
                 Picker("Chế độ", selection: $selectedMode) {
-                    ForEach(Mode.allCases) { mode in
+                    ForEach(AppMode.allCases) { mode in
                         Text(mode.rawValue).tag(mode)
                     }
                 }
@@ -49,7 +64,6 @@ struct ContentView: View {
                     handleModeChange(newMode)
                 }
 
-                // Video Preview Canvas
                 ZStack {
                     SampleBufferDisplayView(currentImage: $currentPreviewImage)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -60,7 +74,6 @@ struct ContentView: View {
                                 .stroke(selectedMode == .mockVideo ? Color.green : Color.blue, lineWidth: 2)
                         )
 
-                    // Badge góc hiển thị chế độ hiện tại
                     VStack {
                         HStack {
                             Label(selectedMode == .mockVideo ? "VIRTUAL FEED" : "LIVE CAMERA",
@@ -78,7 +91,6 @@ struct ContentView: View {
                 }
                 .padding(.horizontal)
 
-                // Action Controls
                 VStack(spacing: 12) {
                     if selectedMode == .mockVideo {
                         PhotosPicker(selection: $selectedPhotoItem, matching: .videos) {
@@ -132,7 +144,7 @@ struct ContentView: View {
         cameraService.checkPermissions()
     }
 
-    private func handleModeChange(_ mode: Mode) {
+    private func handleModeChange(_ mode: AppMode) {
         if mode == .realCamera {
             mockSource.stopStreaming()
             isStreamingMock = false
@@ -148,7 +160,7 @@ struct ContentView: View {
         guard let item = item else { return }
         statusMessage = "Đang tải video..."
 
-        item.loadTransferable(type: MovieTransferable.self) { result in
+        item.loadTransferable(type: MovieFile.self) { result in
             DispatchQueue.main.async {
                 switch result {
                 case .success(let movie):
@@ -171,7 +183,6 @@ struct ContentView: View {
             let uiImage = UIImage(cgImage: cgImage)
             DispatchQueue.main.async {
                 self.currentPreviewImage = uiImage
-                self.frameCount += 1
             }
         }
     }
@@ -187,21 +198,6 @@ extension ContentView: CameraServiceDelegate, MockVideoSourceDelegate {
     func mockVideoSource(_ source: MockVideoSource, didOutput sampleBuffer: CMSampleBuffer) {
         if selectedMode == .mockVideo {
             processSampleBuffer(sampleBuffer)
-        }
-    }
-}
-
-struct MovieTransferable: Transferable {
-    let url: URL
-
-    static var transferRepresentation: some TransferRepresentation {
-        FileRepresentation(contentType: .movie) { movie in
-            SentTransferredFile(movie.url)
-        } importing: { received in
-            let tempDir = FileManager.default.temporaryDirectory
-            let targetURL = tempDir.appendingPathComponent(UUID().uuidString + ".mp4")
-            try FileManager.default.copyItem(at: received.file, to: targetURL)
-            return MovieTransferable(url: targetURL)
         }
     }
 }
