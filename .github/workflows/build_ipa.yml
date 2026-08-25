@@ -24,14 +24,15 @@ jobs:
         cd MockCameraApp
         xcodegen generate
 
-    - name: Build Archive
+    - name: Build App Payload
       run: |
         cd MockCameraApp
-        xcodebuild archive \
+        xcodebuild build \
           -project MockCameraApp.xcodeproj \
           -scheme MockCameraApp \
-          -destination 'generic/platform=iOS' \
-          -archivePath build/MockCameraApp.xcarchive \
+          -sdk iphoneos \
+          -configuration Release \
+          -derivedDataPath build/DerivedData \
           CODE_SIGNING_ALLOWED=NO \
           CODE_SIGNING_REQUIRED=NO \
           SWIFT_COMPILATION_MODE=singlefile \
@@ -40,12 +41,10 @@ jobs:
     - name: Package IPA
       run: |
         cd MockCameraApp
-        
-        # Tìm file .app thực tế được sinh ra
-        APP_PATH=$(find build/MockCameraApp.xcarchive -name "*.app" | head -n 1)
+        APP_PATH=$(find build/DerivedData -name "*.app" | head -n 1)
         
         if [ -z "$APP_PATH" ]; then
-          echo "Error: Xcode archive khong tao ra file .app"
+          echo "Error: Không tìm thấy file .app"
           exit 1
         fi
         
