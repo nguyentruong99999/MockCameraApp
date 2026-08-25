@@ -1,0 +1,207 @@
+import SwiftUI
+import PhotosUI
+import AVFoundation
+import CoreImage
+
+struct ContentView: View {
+    @StateObject private var cameraService = CameraService()
+    private let mockSource = MockVideoSource()
+    private let ciContext = CIContext()
+
+    @State private var selectedMode: Mode = .mockVideo
+    @State private var selectedPhotoItem: PhotosPickerItem? = nil
+    @State private var currentPreviewImage: UIImage? = nil
+    @State private var statusMessage: String = "Chưa nạp video giả lập"
+    @State private var isStreamingMock = false
+    @State private var frameCount = 0
+
+    enum Mode: String, CaseIterable, Identifiable {
+        case realCamera = "Camera Thật"
+        case mockVideo = "Video Giả Lập (VCam)"
+        var id: String { self.rawValue }
+    }
+
+    var body: some View {
+        ZStack {
+            Color.black.ignoresSafeArea()
+
+            VStack(spacing: 16) {
+                // Header Title
+                VStack(spacing: 4) {
+                    Text("VCam & Video Stream Test")
+                        .font(.title2.bold())
+                        .foregroundColor(.white)
+                    Text(statusMessage)
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                }
+                .padding(.top, 8)
+
+                // Mode Picker
+                Picker("Chế độ", selection: $selectedMode) {
+                    ForEach(Mode.allCases) { mode in
+                        Text(mode.rawValue).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .padding(.horizontal)
+                .onChange(of: selectedMode) { newMode in
+                    handleModeChange(newMode)
+                }
+
+                // Video Preview Canvas
+                ZStack {
+                    SampleBufferDisplayView(currentImage: $currentPreviewImage)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Color(.darkGray))
+                        .cornerRadius(16)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 16)
+                                .stroke(selectedMode == .mockVideo ? Color.green : Color.blue, lineWidth: 2)
+                        )
+
+                    // Badge góc hiển thị chế độ hiện tại
+                    VStack {
+                        HStack {
+                            Label(selectedMode == .mockVideo ? "VIRTUAL FEED" : "LIVE CAMERA",
+                                  systemImage: selectedMode == .mockVideo ? "play.circle.fill" : "camera.fill")
+                                .font(.caption.bold())
+                                .padding(8)
+                                .background(Color.black.opacity(0.7))
+                                .foregroundColor(selectedMode == .mockVideo ? .green : .blue)
+                                .cornerRadius(8)
+                            Spacer()
+                        }
+                        Spacer()
+                    }
+                    .padding()
+                }
+                .padding(.horizontal)
+
+                // Action Controls
+                VStack(spacing: 12) {
+                    if selectedMode == .mockVideo {
+                        PhotosPicker(selection: $selectedPhotoItem, matching: .videos) {
+                            HStack {
+                                Image(systemName: "video.badge.plus")
+                                Text("Chọn Video từ Thư viện")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.green)
+                            .foregroundColor(.black)
+                            .cornerRadius(12)
+                            .font(.headline)
+                        }
+                        .onChange(of: selectedPhotoItem) { item in
+                            loadSelectedVideo(item: item)
+                        }
+                    } else {
+                        Button(action: {
+                            if cameraService.isSessionRunning {
+                                cameraService.stop()
+                            } else {
+                                cameraService.start()
+                            }
+                        }) {
+                            HStack {
+                                Image(systemName: cameraService.isSessionRunning ? "pause.circle.fill" : "play.circle.fill")
+                                Text(cameraService.isSessionRunning ? "Tạm dừng Camera" : "Bắt đầu Camera")
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.blue)
+                            .foregroundColor(.white)
+                            .cornerRadius(12)
+                            .font(.headline)
+                        }
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.bottom, 16)
+            }
+        }
+        .onAppear {
+            setupEngine()
+        }
+    }
+
+    private func setupEngine() {
+        cameraService.delegate = self
+        mockSource.delegate = self
+        cameraService.checkPermissions()
+    }
+
+    private func handleModeChange(_ mode: Mode) {
+        if mode == .realCamera {
+            mockSource.stopStreaming()
+            isStreamingMock = false
+            cameraService.start()
+            statusMessage = "Đang chạy Camera thật"
+        } else {
+            cameraService.stop()
+            statusMessage = "Đang ở chế độ Video giả lập"
+        }
+    }
+
+    private func loadSelectedVideo(item: PhotosPickerItem?) {
+        guard let item = item else { return }
+        statusMessage = "Đang tải video..."
+
+        item.loadTransferable(type: MovieTransferable.self) { result in
+            DispatchQueue.main.async {
+                switch result {
+                case .success(let movie):
+                    if let movie = movie {
+                        self.mockSource.startStreaming(with: movie.url)
+                        self.isStreamingMock = true
+                        self.statusMessage = "Đang phát luồng video giả lập"
+                    }
+                case .failure(let error):
+                    self.statusMessage = "Lỗi nạp video: \(error.localizedDescription)"
+                }
+            }
+        }
+    }
+
+    private func processSampleBuffer(_ sampleBuffer: CMSampleBuffer) {
+        guard let imageBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+        let ciImage = CIImage(cvPixelBuffer: imageBuffer)
+        if let cgImage = ciContext.createCGImage(ciImage, from: ciImage.extent) {
+            let uiImage = UIImage(cgImage: cgImage)
+            DispatchQueue.main.async {
+                self.currentPreviewImage = uiImage
+                self.frameCount += 1
+            }
+        }
+    }
+}
+
+extension ContentView: CameraServiceDelegate, MockVideoSourceDelegate {
+    func cameraService(_ service: CameraService, didOutput sampleBuffer: CMSampleBuffer) {
+        if selectedMode == .realCamera {
+            processSampleBuffer(sampleBuffer)
+        }
+    }
+
+    func mockVideoSource(_ source: MockVideoSource, didOutput sampleBuffer: CMSampleBuffer) {
+        if selectedMode == .mockVideo {
+            processSampleBuffer(sampleBuffer)
+        }
+    }
+}
+
+struct MovieTransferable: Transferable {
+    let url: URL
+
+    static var transferRepresentation: some TransferRepresentation {
+        FileRepresentation(contentType: .movie) { movie in
+            SentTransferredFile(movie.url)
+        } importing: { received in
+            let tempDir = FileManager.default.temporaryDirectory
+            let targetURL = tempDir.appendingPathComponent(UUID().uuidString + ".mp4")
+            try FileManager.default.copyItem(at: received.file, to: targetURL)
+            return MovieTransferable(url: targetURL)
+        }
+    }
+}
