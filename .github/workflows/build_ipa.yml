@@ -21,7 +21,7 @@ jobs:
     - name: Build Archive
       run: |
         xcodebuild archive \
-          -project MockCameraApp/MockCameraApp.xcodeproj \
+          -project MockCameraApp.xcodeproj \
           -scheme MockCameraApp \
           -destination 'generic/platform=iOS' \
           -archivePath build/MockCameraApp.xcarchive \
