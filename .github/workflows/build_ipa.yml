@@ -18,11 +18,22 @@ jobs:
       with:
         xcode-version: 'latest-stable'
 
-    - name: Build Archive
+    - name: Find Project and Build Archive
       run: |
-        cd MockCameraApp
+        # Tự động tìm vị trí file .xcodeproj trong repository
+        PROJ_PATH=$(find . -maxdepth 2 -name "*.xcodeproj" | head -n 1)
+        PROJ_DIR=$(dirname "$PROJ_PATH")
+        PROJ_NAME=$(basename "$PROJ_PATH")
+        
+        echo "Found project at: $PROJ_PATH"
+        cd "$PROJ_DIR"
+        
+        # Tạo thư mục build
+        mkdir -p build
+        
+        # Chạy lệnh Archive
         xcodebuild archive \
-          -project MockCameraApp.xcodeproj \
+          -project "$PROJ_NAME" \
           -scheme MockCameraApp \
           -destination 'generic/platform=iOS' \
           -archivePath build/MockCameraApp.xcarchive \
@@ -31,7 +42,10 @@ jobs:
 
     - name: Package IPA
       run: |
-        cd MockCameraApp
+        PROJ_PATH=$(find . -maxdepth 2 -name "*.xcodeproj" | head -n 1)
+        PROJ_DIR=$(dirname "$PROJ_PATH")
+        cd "$PROJ_DIR"
+        
         mkdir -p build/Payload
         cp -R build/MockCameraApp.xcarchive/Products/Applications/*.app build/Payload/
         cd build
@@ -41,4 +55,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: MockCameraApp-IPA
-        path: MockCameraApp/build/MockCameraApp.ipa
+        path: "**/build/MockCameraApp.ipa"
