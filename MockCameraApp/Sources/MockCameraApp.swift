@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct CameraApp: App {
+struct MockCameraApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
