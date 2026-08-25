@@ -1,20 +1,22 @@
 import SwiftUI
-import UIKit
 import AVFoundation
-import CoreImage
 
-struct SampleBufferDisplayView: UIViewRepresentable {
-    @Binding var currentImage: UIImage?
-
-    func makeUIView(context: Context) -> UIImageView {
-        let imageView = UIImageView()
-        imageView.contentMode = .scaleAspectFill
-        imageView.clipsToBounds = true
-        imageView.backgroundColor = .black
-        return imageView
+struct SampleBufferView: UIViewRepresentable {
+    class SampleBufferUIView: UIView {
+        override class var layerClass: AnyClass {
+            return AVSampleBufferDisplayLayer.self
+        }
+        
+        var sampleBufferLayer: AVSampleBufferDisplayLayer {
+            return layer as! AVSampleBufferDisplayLayer
+        }
     }
-
-    func updateUIView(_ uiView: UIImageView, context: Context) {
-        uiView.image = currentImage
+    
+    func makeUIView(context: Context) -> SampleBufferUIView {
+        let view = SampleBufferUIView()
+        view.sampleBufferLayer.videoGravity = .resizeAspectFill
+        return view
     }
+    
+    func updateUIView(_ uiView: SampleBufferUIView, context: Context) {}
 }
