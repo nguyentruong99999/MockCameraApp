@@ -24,19 +24,18 @@ jobs:
         cd MockCameraApp
         xcodegen generate
 
-    - name: Build App Payload
+    - name: Build App Payload (Debug Mode)
       run: |
         cd MockCameraApp
         xcodebuild build \
           -project MockCameraApp.xcodeproj \
           -scheme MockCameraApp \
           -sdk iphoneos \
-          -configuration Release \
+          -configuration Debug \
           -derivedDataPath build/DerivedData \
           CODE_SIGNING_ALLOWED=NO \
           CODE_SIGNING_REQUIRED=NO \
-          SWIFT_COMPILATION_MODE=singlefile \
-          SWIFT_OPTIMIZATION_LEVEL=-Onone
+          COMPILER_INDEX_STORE_ENABLE=NO
 
     - name: Package IPA
       run: |
@@ -44,7 +43,7 @@ jobs:
         APP_PATH=$(find build/DerivedData -name "*.app" | head -n 1)
         
         if [ -z "$APP_PATH" ]; then
-          echo "Error: Không tìm thấy file .app"
+          echo "Error: Khong tim thay file .app"
           exit 1
         fi
         
