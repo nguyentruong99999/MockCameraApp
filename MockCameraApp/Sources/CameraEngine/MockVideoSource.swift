@@ -1,10 +1,14 @@
-import SwiftUI
+import Foundation
+import AVFoundation
 
-@main
-struct MockCameraApp: App {
-    var body: some Scene {
-        WindowGroup {
-            ContentView()
-        }
+class MockVideoSource: NSObject, ObservableObject {
+    @Published var isRunning = false
+    
+    func start() {
+        isRunning = true
+    }
+    
+    func stop() {
+        isRunning = false
     }
 }
