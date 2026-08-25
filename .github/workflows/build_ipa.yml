@@ -18,20 +18,27 @@ jobs:
       with:
         xcode-version: 'latest-stable'
 
-    - name: Find Project and Build Archive
+    - name: Build and Package IPA
       run: |
-        # Tự động tìm vị trí file .xcodeproj trong repository
-        PROJ_PATH=$(find . -maxdepth 2 -name "*.xcodeproj" | head -n 1)
-        PROJ_DIR=$(dirname "$PROJ_PATH")
-        PROJ_NAME=$(basename "$PROJ_PATH")
+        # 1. Tìm chính xác file .xcodeproj trong toàn bộ repository
+        XCODEPROJ=$(find . -name "*.xcodeproj" -maxdepth 3 | head -n 1)
         
-        echo "Found project at: $PROJ_PATH"
+        if [ -z "$XCODEPROJ" ]; then
+          echo "ERROR: Khong tim thay file .xcodeproj nao trong repo!"
+          exit 1
+        fi
+        
+        echo "--> Tim thay file du an tai: $XCODEPROJ"
+        
+        # Lấy thông tin thư mục và tên file project
+        PROJ_DIR=$(dirname "$XCODEPROJ")
+        PROJ_NAME=$(basename "$XCODEPROJ")
+        
+        # 2. Chuyển vào thư mục chứa project
         cd "$PROJ_DIR"
+        echo "--> Dang o thu muc: $(pwd)"
         
-        # Tạo thư mục build
-        mkdir -p build
-        
-        # Chạy lệnh Archive
+        # 3. Tiến hành Archive
         xcodebuild archive \
           -project "$PROJ_NAME" \
           -scheme MockCameraApp \
@@ -39,13 +46,8 @@ jobs:
           -archivePath build/MockCameraApp.xcarchive \
           CODE_SIGNING_ALLOWED=NO \
           CODE_SIGNING_REQUIRED=NO
-
-    - name: Package IPA
-      run: |
-        PROJ_PATH=$(find . -maxdepth 2 -name "*.xcodeproj" | head -n 1)
-        PROJ_DIR=$(dirname "$PROJ_PATH")
-        cd "$PROJ_DIR"
-        
+          
+        # 4. Đóng gói thành IPA
         mkdir -p build/Payload
         cp -R build/MockCameraApp.xcarchive/Products/Applications/*.app build/Payload/
         cd build
