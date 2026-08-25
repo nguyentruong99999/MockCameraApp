@@ -18,36 +18,26 @@ jobs:
       with:
         xcode-version: 'latest-stable'
 
-    - name: Build and Package IPA
+    - name: Install XcodeGen & Generate Project
       run: |
-        # 1. Tìm chính xác file .xcodeproj trong toàn bộ repository
-        XCODEPROJ=$(find . -name "*.xcodeproj" -maxdepth 3 | head -n 1)
-        
-        if [ -z "$XCODEPROJ" ]; then
-          echo "ERROR: Khong tim thay file .xcodeproj nao trong repo!"
-          exit 1
-        fi
-        
-        echo "--> Tim thay file du an tai: $XCODEPROJ"
-        
-        # Lấy thông tin thư mục và tên file project
-        PROJ_DIR=$(dirname "$XCODEPROJ")
-        PROJ_NAME=$(basename "$XCODEPROJ")
-        
-        # 2. Chuyển vào thư mục chứa project
-        cd "$PROJ_DIR"
-        echo "--> Dang o thu muc: $(pwd)"
-        
-        # 3. Tiến hành Archive
+        brew install xcodegen
+        cd MockCameraApp
+        xcodegen generate
+
+    - name: Build Archive
+      run: |
+        cd MockCameraApp
         xcodebuild archive \
-          -project "$PROJ_NAME" \
+          -project MockCameraApp.xcodeproj \
           -scheme MockCameraApp \
           -destination 'generic/platform=iOS' \
           -archivePath build/MockCameraApp.xcarchive \
           CODE_SIGNING_ALLOWED=NO \
           CODE_SIGNING_REQUIRED=NO
-          
-        # 4. Đóng gói thành IPA
+
+    - name: Package IPA
+      run: |
+        cd MockCameraApp
         mkdir -p build/Payload
         cp -R build/MockCameraApp.xcarchive/Products/Applications/*.app build/Payload/
         cd build
@@ -57,4 +47,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: MockCameraApp-IPA
-        path: "**/build/MockCameraApp.ipa"
+        path: MockCameraApp/build/MockCameraApp.ipa
