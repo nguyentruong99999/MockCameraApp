@@ -3,28 +3,11 @@ import UIKit
 import PhotosUI
 import AVFoundation
 import CoreImage
-import UniformTypeIdentifiers
-import CoreTransferable
 
 enum AppMode: String, CaseIterable, Identifiable {
     case realCamera = "Camera Thật"
     case mockVideo = "Video Giả Lập (VCam)"
     var id: String { self.rawValue }
-}
-
-struct MovieFile: Transferable {
-    let url: URL
-
-    static var transferRepresentation: some TransferRepresentation {
-        FileRepresentation(contentType: .movie) { movie in
-            SentTransferredFile(movie.url)
-        } importing: { received in
-            let tempDir = FileManager.default.temporaryDirectory
-            let targetURL = tempDir.appendingPathComponent(UUID().uuidString + ".mp4")
-            try FileManager.default.copyItem(at: received.file, to: targetURL)
-            return MovieFile(url: targetURL)
-        }
-    }
 }
 
 struct ContentView: View {
@@ -60,9 +43,9 @@ struct ContentView: View {
                 }
                 .pickerStyle(.segmented)
                 .padding(.horizontal)
-                .onChange(of: selectedMode) { newMode in
+                .onChange(of: selectedMode, perform: { newMode in
                     handleModeChange(newMode)
-                }
+                })
 
                 ZStack {
                     SampleBufferDisplayView(currentImage: $currentPreviewImage)
@@ -105,9 +88,9 @@ struct ContentView: View {
                             .cornerRadius(12)
                             .font(.headline)
                         }
-                        .onChange(of: selectedPhotoItem) { item in
+                        .onChange(of: selectedPhotoItem, perform: { item in
                             loadSelectedVideo(item: item)
-                        }
+                        })
                     } else {
                         Button(action: {
                             if cameraService.isSessionRunning {
@@ -160,14 +143,20 @@ struct ContentView: View {
         guard let item = item else { return }
         statusMessage = "Đang tải video..."
 
-        item.loadTransferable(type: MovieFile.self) { result in
+        item.loadTransferable(type: Data.self) { result in
             DispatchQueue.main.async {
                 switch result {
-                case .success(let movie):
-                    if let movie = movie {
-                        self.mockSource.startStreaming(with: movie.url)
-                        self.isStreamingMock = true
-                        self.statusMessage = "Đang phát luồng video giả lập"
+                case .success(let data):
+                    if let data = data {
+                        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("temp_vcam.mp4")
+                        do {
+                            try data.write(to: tempURL)
+                            self.mockSource.startStreaming(with: tempURL)
+                            self.isStreamingMock = true
+                            self.statusMessage = "Đang phát luồng video giả lập"
+                        } catch {
+                            self.statusMessage = "Lỗi ghi video: \(error.localizedDescription)"
+                        }
                     }
                 case .failure(let error):
                     self.statusMessage = "Lỗi nạp video: \(error.localizedDescription)"
