@@ -24,7 +24,7 @@ jobs:
         cd MockCameraApp
         xcodegen generate
 
-    - name: Build App Payload
+    - name: Build App
       run: |
         cd MockCameraApp
         xcodebuild build \
@@ -32,22 +32,29 @@ jobs:
           -scheme MockCameraApp \
           -sdk iphoneos \
           -configuration Debug \
+          -derivedDataPath build/DerivedData \
           CODE_SIGNING_ALLOWED=NO \
-          CODE_SIGNING_REQUIRED=NO \
-          COMPILER_INDEX_STORE_ENABLE=NO | grep -A 5 -B 2 "error:" || true
+          CODE_SIGNING_REQUIRED=NO
 
     - name: Package IPA
       run: |
-        cd MockCameraApp
-        APP_PATH=$(find build -name "*.app" 2>/dev/null | head -n 1)
-        if [ -n "$APP_PATH" ]; then
-          mkdir -p build/Payload
-          cp -R "$APP_PATH" build/Payload/
-          cd build && zip -r MockCameraApp.ipa Payload
+        # Tìm file .app trong toàn bộ ổ đĩa làm việc
+        APP_PATH=$(find . -name "*.app" -type d | head -n 1)
+        
+        if [ -z "$APP_PATH" ]; then
+          echo "Không tìm thấy file .app nào sau khi build!"
+          exit 1
         fi
+        
+        echo "Đã tìm thấy app tại: $APP_PATH"
+        
+        mkdir -p build_output/Payload
+        cp -R "$APP_PATH" build_output/Payload/
+        cd build_output
+        zip -r MockCameraApp.ipa Payload
 
     - name: Upload IPA Artifact
       uses: actions/upload-artifact@v4
       with:
         name: MockCameraApp-IPA
-        path: MockCameraApp/build/MockCameraApp.ipa
+        path: build_output/MockCameraApp.ipa
