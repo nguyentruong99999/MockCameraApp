@@ -143,22 +143,19 @@ struct ContentView: View {
         guard let item = item else { return }
         statusMessage = "Đang tải video..."
 
-        item.loadTransferable(type: Data.self) { result in
-            DispatchQueue.main.async {
-                switch result {
-                case .success(let data):
-                    if let data = data {
-                        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("temp_vcam.mp4")
-                        do {
-                            try data.write(to: tempURL)
-                            self.mockSource.startStreaming(with: tempURL)
-                            self.isStreamingMock = true
-                            self.statusMessage = "Đang phát luồng video giả lập"
-                        } catch {
-                            self.statusMessage = "Lỗi ghi video: \(error.localizedDescription)"
-                        }
+        Task {
+            do {
+                if let data = try await item.loadTransferable(type: Data.self) {
+                    let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent("temp_vcam.mp4")
+                    try data.write(to: tempURL)
+                    await MainActor.run {
+                        self.mockSource.startStreaming(with: tempURL)
+                        self.isStreamingMock = true
+                        self.statusMessage = "Đang phát luồng video giả lập"
                     }
-                case .failure(let error):
+                }
+            } catch {
+                await MainActor.run {
                     self.statusMessage = "Lỗi nạp video: \(error.localizedDescription)"
                 }
             }
