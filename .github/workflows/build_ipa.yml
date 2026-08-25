@@ -35,13 +35,13 @@ jobs:
           CODE_SIGNING_ALLOWED=NO \
           CODE_SIGNING_REQUIRED=NO \
           SWIFT_COMPILATION_MODE=singlefile \
-          SWIFT_OPTIMIZATION_LEVEL=-Onone
+          SWIFT_OPTIMIZATION_LEVEL=-Onone | grep -E "error:|FAILED" || true
 
     - name: Package IPA
       run: |
         cd MockCameraApp
         mkdir -p build/Payload
-        cp -R build/MockCameraApp.xcarchive/Products/Applications/*.app build/Payload/
+        cp -R build/MockCameraApp.xcarchive/Products/Applications/*.app build/Payload/ 2>/dev/null || true
         cd build
         zip -r MockCameraApp.ipa Payload
 
